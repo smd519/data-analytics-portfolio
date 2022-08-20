@@ -9,3 +9,6 @@ In this project, we analyze the Yellow Taxi Trip Data from NYC Taxi dataset. Our
 
 + The networkx code comes from the [from_scipy_sparse_matrix package](https://networkx.org/documentation/stable/reference/generated/networkx.convert_matrix.from_scipy_sparse_matrix.html).
 + We prepare the data and process the results.
+
+## 3. [Credit Default Prediction](https://github.com/smd519/data-analytics-portfolio/blob/main/Credit_Default_Prediction/Credit_Default_Prediction.ipynb)
+In this project, we use consumer credit card profile data to predict if a consumer will default in the future. Dataset includes 190 features which are are anonymized and normalized and includes only the following categaries: spend, payment, balance, risk, and delinquency features. Our hypothesis is that Balance variables will be more important in predicting default than the others, i.e. Customers with higher balances are more likely to default. We test this hypothesis, by running Principal Component Analysis, Lasso Regression and Logistic Regression. We have utilized SQLite, R and Python.
