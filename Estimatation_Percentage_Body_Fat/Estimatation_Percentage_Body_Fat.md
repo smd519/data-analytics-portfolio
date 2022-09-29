@@ -6,14 +6,10 @@ Percentage of Body Fat and Body Measurements
 We load the data and explore the summary stats.
 
 ``` r
-setwd("C://Users/WZNQMP/Desktop/OMSA/Fall_2022/DMSL/HW2")
 fat <- read.table(file="fat.csv", sep = ",", header = TRUE);
 ```
 
 ## See sample data
-
-To see the letter picture of the 5-th row by changing the row
-observation to a matrix
 
 ``` r
 head(fat)
@@ -722,7 +718,7 @@ mod7ncompopt <- which.min(mod7$validation$adj);
 mod7ncompopt
 ```
 
-    ## [1] 17
+    ## [1] 16
 
 *Training errors*
 
@@ -731,7 +727,7 @@ y7pred.train <- predict(mod7, ncomp = mod7ncompopt, newdata = train.normal[2:18]
 mean( (y7pred.train - train.normal[,1])^2 );
 ```
 
-    ## [1] 0.02930823
+    ## [1] 0.02948086
 
 *Testing errors*
 
@@ -740,7 +736,7 @@ y7pred.test <- predict(mod7, ncomp = mod7ncompopt, newdata = test.normal[2:18]);
 mean( (y7pred.test - test.normal[,1])^2 );
 ```
 
-    ## [1] 0.008755981
+    ## [1] 0.01034676
 
 \#4. Monte Carlo Cross-Validation
 
