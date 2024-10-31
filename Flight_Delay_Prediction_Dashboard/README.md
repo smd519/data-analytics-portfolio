@@ -1,4 +1,4 @@
-# SE6242team114 - On-Time Aviation
+# team114 - On-Time Aviation
 
 'On-Time Aviation' is a machine learning based flight delay prediction dashboard," an innovative project that aims to develop an interactive
 dashboard to accurately predict flight delays for common routes.
