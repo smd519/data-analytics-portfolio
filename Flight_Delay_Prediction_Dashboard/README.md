@@ -7,6 +7,8 @@ dashboard to accurately predict flight delays for common routes. This was a grou
 
 You must select the origin, destination airport, targeted airlines, and date. The application pass the parameters to our machine learing model to get the predicted likelihood of delay base on your selections. The results will be displayed to the users and sorted from less risk to high risk of arrival delay.
 
+<img src="https://github.com/smd519/data-analytics-portfolio/blob/main/Flight_Delay_Prediction_Dashboard/screenshots/ui.png" width="800">
+
 # How It Works
 
 Users will be able to select the origin, destination airport, targeted airlines, and date. The UI will pass the parameters into our model to get predicted values for each airline. The results will be displayed to the users and sorted from less risk to high risk of arrival delay. The dashboard use machine learning (ML) algorithms, which will analyze features such as departure time, route, and airline, to predict the likelihood of a delay. The machine learning algorithm is a XG Boost model which is trained trained using flight information from 2018 to 2022.
