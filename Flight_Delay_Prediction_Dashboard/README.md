@@ -1,7 +1,11 @@
-# SE6242team114 - On-Time Aviation
+# On-Time Aviation
 
 'On-Time Aviation' is a machine learning based flight delay prediction dashboard," an innovative project that aims to develop an interactive
-dashboard to accurately predict flight delays for common routes.
+dashboard to accurately predict flight delays for common routes. This was a groupd project (Team 114) for a graduate-level course (Visual Analytics). 
+
+# How to use the application
+
+You must select the origin, destination airport, targeted airlines, and date. The application pass the parameters to our machine learing model to get the predicted likelihood of delay base on your selections. The results will be displayed to the users and sorted from less risk to high risk of arrival delay.
 
 # How It Works
 
@@ -64,6 +68,3 @@ You can use the following URL in navigate bar:
 
     localhost:3001
 
-# How to use the application
-
-You must select the origin, destination airport, targeted airlines, and date. The application pass the parameters to our machine learing model to get the predicted likelihood of delay base on your selections. The results will be displayed to the users and sorted from less risk to high risk of arrival delay.
