@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<script type="text/javascript" src="../static/lib/d3.v5.min.js"></script>
+<script type="text/javascript" src="../static/lib/d3-tip.min.js"></script>
+
+<head>
+  <style>
+    body,
+    html {
+      height: 100%;
+    }
+  </style>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+    integrity="sha384-aFq/bzH65dt+w6FI2ooMVUpc+21e0SRygnTpmBvdBgSdnuTN7QbdgL+OapgHtvPp"
+    crossorigin="anonymous"
+  />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/all.min.css" />
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha2/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-qKXV1j0HvMUeCBQ+QVp7JcfGl760yU08IQ+GpUo5hlbpg51QRiuqHAJz8+BrxE/N"
+    crossorigin="anonymous"
+  ></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
+
+  <title>Airports</title>
+</head>
+
+<body>
+  <div class="container h-100">
+    <div class="row h-100">
+      <div class="card my-auto">
+        <div class="text-center card-header">Arrival Delay Prediction</div>
+        <div class="d-flex justify-content-between mt-4 pb-4">
+          <svg id="svg"></svg>
+
+          <div style="width: 350px">
+            <form class="mt-3">
+              <!-- origin airport -->
+              <div>
+                <h6>Origin:</h6>
+                <span id="selectedOriginAirport" class="text-primary" style="overflow-wrap: normal; font-style: italic; font-size: 16px">None</span>
+              </div>
+
+              <!-- destination airport -->
+              <div class="mt-3">
+                <h6>Destination:</h6>
+                <span id="selectedDestinationAirport" class="text-danger" style="overflow-wrap: normal; font-style: italic; font-size: 16px">None</span>
+              </div>
+
+              <!-- select airlines -->
+              <div class="mt-3">
+                <h6>Select Airline(s)</h6>
+                <select class="form-select" size="3" style="width: 300px" multiple id="airlinesSelect">
+                  <option value="American Airlines Inc.">American Airlines Inc.</option>
+                  <option value="Delta Air Lines Inc.">Delta Air Lines Inc.</option>
+                  <option value="JetBlue Airways">JetBlue Airways</option>
+                  <option value="SkyWest Airlines Inc.">SkyWest Airlines Inc.</option>
+                  <option value="United Air Lines Inc.">United Air Lines Inc.</option>
+                </select>
+              </div>
+
+              <!-- date picker -->
+              <div class="mt-3">
+                <h6>Select Date</h6>
+                <div class="input-group date" id="datepicker" style="width: 200px">
+                  <input type="text" class="form-control" />
+                  <span class="input-group-append">
+                    <span class="input-group-text bg-white d-block">
+                      <i class="fa fa-calendar"></i>
+                    </span>
+                  </span>
+                </div>
+              </div>
+              <div class="mt-3">
+                <h6>Select Departure Time</h6>
+                <select class="form-select" id="departureTime" style="width: 250px">
+                  <option value="Early Morning (Before 8am)" selected>Early Morning (Before 8am)</option>
+                  <option value="Morning (8am to Noon)" selected>Morning (8am to Noon)</option>
+                  <option value="Afternoon (12 to 5pm)" selected>Afternoon (12 to 5pm)</option>
+                  <option value="Night (After 5pm)" selected>Night (After 5pm)</option>
+                </select>
+              </div>
+
+              <!-- generate button -->
+              <div class="my-auto mt-3">
+                <button type="button" class="btn btn-primary btn-sm" id="submitButton">Generate</button>
+              </div>
+              <div id="errorMessage" class="pt-2" style="color: red"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div id="content-container"></div>
+    </div>
+  </div>
+
+  <script>
+    $(function () {
+      $("#datepicker").datepicker();
+    });
+
+    const width = 960,
+      height = 500;
+
+    const projectionTranslator = d3.geoAlbersUsa().translate([width / 2, height / 2]);
+    const path = d3.geoPath(projectionTranslator);
+    const getData = d3.dsv(",", "../static/data/airports.csv");
+    const getStateData = d3.dsv(",", "../static/data/states.csv");
+    const getGeoData = d3.json("../static/data/us-states.json");
+    const getDistanceData = d3.dsv(",", "../static/data/dest_origin_distances.csv");
+
+    // form data
+    let selectedOriginAirport = null,
+      selectedDestinationAirport = null;
+
+    Promise.all([getData, getStateData, getGeoData, getDistanceData]).then(function (data) {
+      const airportsData = data[0];
+      const statesData = data[1];
+      const geoData = data[2];
+      const distanceData = data[3];
+      console.log(distanceData);
+
+      function stateLookup(name) {
+        const lookup = {};
+        for (const item of statesData) {
+          if (item.state == name) return item.code;
+        }
+        return "";
+      }
+
+      const svg = d3.select("#svg").attr("width", width).attr("height", height);
+      const usMap = svg.append("g").attr("id", "usMap").attr("width", width).attr("height", height);
+      const colors = ["#95B9C7", "#ADD8E6", "#E3E4FA", "#EBF4FA", "#CCFFFF", "#B3D9D9", "#BCC6CC"];
+      const statesWithAirport = ["53", "06", "32", "08", "17", "36", "13", "25"];
+
+      usMap
+        .selectAll("path")
+        .data(geoData.features)
+        .enter()
+        .append("path")
+        .attr("d", path)
+        .style("stroke", "#fff")
+        .style("fill", function (d) {
+          if (statesWithAirport.includes(d.id)) {
+            return "#3EB489";
+          } else {
+            return colors[Math.floor(d.id / 10)];
+          }
+        });
+
+      const labels = svg.append("g").attr("id", "labels");
+      labels
+        .selectAll("text")
+        .data(geoData.features)
+        .enter()
+        .append("text")
+        .attr("text-anchor", "middle")
+        .attr("fill", "#616161")
+        .attr("font-size", "10px")
+        .text((d) => stateLookup(d.properties.name))
+        .attr("x", (d) => path.centroid(d)[0])
+        .attr("y", (d) => path.centroid(d)[1]);
+
+      const airportDefaults = {
+        color: "#424242",
+        radius: 6,
+      };
+      const airportOrigin = {
+        color: "#0277BD",
+      };
+      const airportDestination = {
+        color: "#C62828",
+      };
+      const airportSelected = {
+        radius: 12,
+      };
+
+      // Create a circle for each airport
+      var airports = svg
+        .selectAll("circle")
+        .data(airportsData)
+        .enter()
+        .append("circle")
+        .attr("cx", (d) => projectionTranslator([Number(d.longitude), Number(d.latitude)])[0])
+        .attr("cy", (d) => projectionTranslator([Number(d.longitude), Number(d.latitude)])[1])
+        .attr("r", airportDefaults.radius)
+        .attr("fill", airportDefaults.color)
+        .on("mouseover", function (d) {
+          const currentLabel = d3.select(this);
+          currentLabel.attr("r", airportSelected.radius);
+          // currentLabel.transition().duration(3).attr("r", airportSelected.radius);
+        })
+        .on("mouseout", function (d) {
+          const currentLabel = d3.select(this);
+          currentLabel.attr("r", airportDefaults.radius);
+        })
+        .on("click", function (d) {
+          let currentCirce = d3.select(this);
+          if (selectedOriginAirport && selectedDestinationAirport) {
+            start = null;
+            end = null;
+            selectedOriginAirport = null;
+            selectedDestinationAirport = null;
+            const circles = d3.selectAll("circle");
+            circles.attr("fill", airportDefaults.color);
+            setOriginAirport(d);
+            currentCirce.attr("fill", airportOrigin.color);
+            start = [+currentCirce.attr("cx"), +currentCirce.attr("cy")];
+            setDestinationAirport();
+          } else if (!selectedOriginAirport && !selectedDestinationAirport) {
+            setOriginAirport(d);
+            currentCirce.attr("fill", airportOrigin.color);
+
+            start = [+currentCirce.attr("cx"), +currentCirce.attr("cy")];
+          } else if (selectedOriginAirport && !selectedDestinationAirport) {
+            setDestinationAirport(d);
+            currentCirce.attr("fill", airportDestination.color);
+
+            // Define the arrowhead marker variables
+            const markerBoxWidth = 10;
+            const markerBoxHeight = 10;
+            const refX = markerBoxWidth / 2;
+            const refY = markerBoxHeight / 2;
+            const markerWidth = markerBoxWidth / 2;
+            const markerHeight = markerBoxHeight / 2;
+            const arrowPoints = [
+              [0, 0],
+              [0, 10],
+              [10, 5],
+            ];
+
+            end = [+currentCirce.attr("cx"), +currentCirce.attr("cy")];
+            d3.selectAll("path.arc").remove();
+            mydata = [start.concat(end)];
+            svg
+              .selectAll("path.arc")
+              .data(mydata)
+              .enter()
+              .append("svg:path")
+              .attr("class", "arc")
+              .attr("d", function (d) {
+                var dx = d[3] - d[0],
+                  dy = d[2] - d[1],
+                  dr = Math.sqrt(dx * dx + dy * dy);
+                return "M" + d[0] + "," + d[1] + "A" + dr + "," + dr + " 0 0,1 " + d[2] + "," + d[3];
+              })
+              .style("stroke-width", 2)
+              .attr("fill", "none")
+              .style("stroke", "black")
+              .attr("marker-end", "url(#arrow)");
+
+            svg
+              .append("defs")
+              .append("marker")
+              .attr("id", "arrow")
+              .attr("viewBox", [0, 0, markerBoxWidth, markerBoxHeight])
+              .attr("refX", refX)
+              .attr("refY", refY)
+              .attr("markerWidth", markerBoxWidth)
+              .attr("markerHeight", markerBoxHeight)
+              .attr("orient", "auto-start-reverse")
+              .append("svg:path")
+              .attr("d", d3.line()(arrowPoints))
+              .attr("stroke", "red");
+          }
+        });
+
+      const airportLabels = svg.append("g").attr("id", "airportLabels"); // setup a container <g> node to hold all the labels
+      airportLabels
+        .selectAll("text")
+        .data(airportsData)
+        .enter()
+        .append("text")
+        .attr("text-anchor", "middle")
+        .attr("fill", "#000")
+        .attr("font-size", "12px")
+        .text((d) => d.abbr)
+        .attr("x", (d) => projectionTranslator([Number(d.longitude), Number(d.latitude)])[0] - 20)
+        .attr("y", (d) => projectionTranslator([Number(d.longitude), Number(d.latitude)])[1] + 5);
+
+      $("#submitButton").click(async function () {
+        const isValid = validateForm();
+        if (!isValid) {
+          $("#errorMessage").text("Not all values are selected");
+          return;
+        }
+        $("#errorMessage").text("");
+        await submitForm(distanceData);
+      });
+    });
+
+    function setOriginAirport(d) {
+      selectedOriginAirport = d ? d : null;
+      const selectedOriginAirportLabel = document.getElementById("selectedOriginAirport");
+      const label = d ? getAirportLabel(d) : "None";
+      selectedOriginAirportLabel.textContent = label;
+    }
+    function setDestinationAirport(d) {
+      selectedDestinationAirport = d ? d : null;
+      const selectedDestinationAirportLabel = document.getElementById("selectedDestinationAirport");
+      const label = d ? getAirportLabel(d) : "None";
+      selectedDestinationAirportLabel.textContent = label;
+    }
+    function getAirportLabel(d) {
+      return d.name + " (" + d.abbr + ")";
+    }
+
+    function validateForm() {
+      const airlinesSelect = $("#airlinesSelect").val();
+      const selectedDate = $("#datepicker").datepicker("getDate");
+      const departureTimeSelect = $("#departureTime").val();
+      if (!selectedOriginAirport || !selectedDestinationAirport || !airlinesSelect.length || !selectedDate || !departureTimeSelect) {
+        return false;
+      }
+      return true;
+    }
+
+    async function submitForm(distanceData) {
+      const submitButton = $("#submitButton");
+      submitButton.prop("disabled", true);
+      submitButton.text("Loading...");
+
+      // origin
+      const originAirport = selectedOriginAirport.abbr;
+      const airportMapping = new Map([
+        ["BOS", 0],
+        ["DEN", 1],
+        ["JFK", 2],
+        ["LAS", 3],
+        ["LAX", 4],
+        ["LGA", 5],
+        ["ORD", 6],
+        ["SEA", 7],
+        ["SFO", 8],
+        ["ATL", 9],
+      ]);
+      originCodeFeature = airportMapping.get(originAirport);
+      //destination
+      const destAirport = selectedDestinationAirport.abbr;
+      destCodeFeature = airportMapping.get(destAirport);
+      //airlines
+      const airlineSelections = $("#airlinesSelect").val();
+      const airlineMapping = new Map([
+        ["American Airlines Inc.", 10],
+        ["Delta Air Lines Inc.", 3],
+        ["JetBlue Airways", 11],
+        ["SkyWest Airlines Inc.", 5],
+        ["United Air Lines Inc.", 9],
+      ]);
+      const airlineCodesFeature = airlineSelections.map((code) => airlineMapping.get(code));
+      // define reverse mapping for displaying airline results
+      const reverseAirlineMapping = new Map(Array.from(airlineMapping.entries()).map((entry) => [entry[1], entry[0]]));
+
+      // https://bootstrap-datepicker.readthedocs.io/en/latest/methods.html
+      // date
+      const utcDate = $("#datepicker").datepicker("getUTCDate");
+      const dateObject = new Date(utcDate);
+      // month
+      const month = dateObject.getUTCMonth() + 1;
+      // dayOfWeek
+      const tempDayOfWeek = dateObject.getUTCDay();
+      console.log(tempDayOfWeek);
+      const dayOfWeek = tempDayOfWeek == 0 ? 7 : tempDayOfWeek;
+      // year
+      const year = dateObject.getUTCFullYear();
+      const seasonMapping = new Map([
+        [12, 1],
+        [1, 1],
+        [2, 1],
+        [3, 2],
+        [4, 2],
+        [5, 2],
+        [6, 4],
+        [7, 4],
+        [8, 4],
+        [9, 3],
+        [10, 3],
+        [11, 3],
+      ]);
+      const season = seasonMapping.get(month);
+
+      // Sched_dep_time
+      const departureTimeSelect = $("#departureTime").val();
+      const departureTimeMapping = new Map([
+        ["Early Morning (Before 8am)", 0],
+        ["Morning (8am to Noon)", 1],
+        ["Afternoon (12 to 5pm)", 2],
+        ["Night (After 5pm)", 3],
+      ]);
+      departureTimeFeature = departureTimeMapping.get(departureTimeSelect);
+
+      // distance
+      const distanceRecord = distanceData.find((o) => o["Origin_code"] == originCodeFeature && o["Dest_code"] == destCodeFeature);
+      const distanceFeature = Number(distanceRecord["Distance"]);
+      console.log(distanceFeature);
+
+      // Log Model Features
+      console.log("month: " + month);
+      console.log("day of week: " + dayOfWeek);
+      console.log("year: " + year);
+      console.log("season: " + season);
+      console.log("departure time: " + departureTimeFeature);
+      console.log("airline codes: " + airlineCodesFeature);
+      console.log("origin code: " + originCodeFeature);
+      console.log("destination code: " + destCodeFeature);
+      const payload = {
+        month: month,
+        dayOfWeek: dayOfWeek,
+        year: year,
+        season: season,
+        departureTimeFeature: departureTimeFeature,
+        airlineCodesFeature: airlineCodesFeature,
+        originCodeFeature: originCodeFeature,
+        destCodeFeature: destCodeFeature,
+        distanceFeature: distanceFeature,
+      };
+
+      fetch("/get_results", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          const results = data["results"];
+          console.log(results);
+
+          const contentContainer = document.getElementById("content-container");
+
+          // Clear previous content
+          contentContainer.innerHTML = "";
+
+          // Create the information circle graphic
+          const infoContainer = document.createElement("div");
+          const infoIcon = document.createElement("i");
+
+          infoContainer.classList.add("d-flex", "justify-content-end");
+          infoIcon.classList.add("fa-solid", "fa-circle-info");
+
+          infoContainer.appendChild(infoIcon);
+          contentContainer.appendChild(infoContainer);
+
+          // Create the accordion container
+          const accordionContainer = document.createElement("div");
+          accordionContainer.classList.add("accordion", "mt-3");
+          contentContainer.appendChild(accordionContainer);
+
+          results.forEach((result) => {
+            // Create the necessary HTML elements
+            const item = document.createElement("div");
+            const header = document.createElement("h2");
+            const button = document.createElement("button");
+            const collapse = document.createElement("div");
+            const body = document.createElement("div");
+
+            // Set the attributes and classes for the elements
+            item.classList.add("accordion-item");
+            header.classList.add("accordion-header");
+            button.classList.add("accordion-button", "collapsed");
+            button.setAttribute("type", "button");
+            button.setAttribute("data-bs-toggle", "collapse");
+            button.setAttribute("aria-expanded", "false");
+            collapse.classList.add("accordion-collapse", "collapse");
+            body.classList.add("accordion-body");
+
+            // Set unique ID for each collapse element
+            const collapseId = `collapse-${result.airlineCode}`;
+            button.setAttribute("data-bs-target", `#${collapseId}`);
+            button.setAttribute("aria-controls", collapseId);
+            collapse.setAttribute("id", collapseId);
+
+            // Determine the highest probability category and corresponding color and risk level
+            const highestProbability = Math.max(result.low, result.medium, result.high);
+            const buttonBackgroundColor = highestProbability === result.low ? "#ccffcc" : highestProbability === result.medium ? "#ffffcc" : "#ffcccc";
+            const riskLevel = highestProbability === result.low ? "Low Risk" : highestProbability === result.medium ? "Medium Risk" : "High Risk";
+
+            // Set the content of the elements
+            button.innerHTML = `<span>${reverseAirlineMapping.get(result.airlineCode)} (${riskLevel})</span>`;
+            button.style.backgroundColor = buttonBackgroundColor;
+            body.innerHTML = `
+                <div>Likelihood of short or no delay (< 5 minutes): <span style="background-color: green; color: black; padding: 2px;">${(result.low * 100).toFixed(2)}%</span></div>
+                <div>Likelihood of average delay (5 minutes to 60 minutes): <span style="background-color: yellow; color: black; padding: 2px;">${(result.medium * 100).toFixed(2)}%</span></div>
+                <div>Likelihood of long delay (> 60 minutes): <span style="background-color: red; color: black; padding: 2px;">${(result.high * 100).toFixed(2)}%</span></div>
+              `;
+
+            // Append the elements to the container
+            header.appendChild(button);
+            collapse.appendChild(body);
+            item.appendChild(header);
+            item.appendChild(collapse);
+            accordionContainer.appendChild(item);
+          });
+        })
+        .finally(() => {
+          // change button back to non-loading state
+          submitButton.prop("disabled", false);
+          submitButton.text("Generate");
+        });
+    }
+  </script>
+</body>
